@@ -1,29 +1,101 @@
-name: Build X96 Mate LAN Test Kernel
+name: Build X96 Mate LAN Test Kernel v2
 
 on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-24.04
 
     steps:
-      - name: Checkout
+      - name: Checkout X96 custom repo
         uses: actions/checkout@v4
 
-      - name: Build Armbian kernel
-        uses: armbian/build@main
+      - name: Checkout exact Armbian framework
+        uses: actions/checkout@v4
         with:
-          armbian_token: ${{ secrets.GITHUB_TOKEN }}
-          armbian_board: x96-mate
-          armbian_target: kernel
-          armbian_branch: main
-          armbian_kernel_branch: current
-          armbian_release: noble
-          armbian_ui: server
-          armbian_runner_clean: yes
-          armbian_artifacts: build/output/debs/
-          armbian_release_title: X96 Mate H616 LAN kernel test
+          repository: armbian/build
+          ref: cc32cd6c6dfdf36bfe89bfe2f3e881f592122fc8
+          path: armbian-build
+          fetch-depth: 1
+
+      - name: Inject diagnostic H616 LAN patch
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SRC="$GITHUB_WORKSPACE/userpatches/kernel/archive/sunxi-6.18/patches.armbian/drv-net-stmmac-dwmac-sun8i-add-h616-internal-phy.patch"
+
+          DST="$GITHUB_WORKSPACE/armbian-build/patch/kernel/archive/sunxi-6.18/patches.armbian/drv-net-stmmac-dwmac-sun8i-add-h616-internal-phy.patch"
+
+          echo "===== CUSTOM PATCH ====="
+          sha256sum "$SRC"
+
+          EXPECTED="816622165551ad89fd4e261b8f8ba12549e994b8d05f9d1d4167ab198a5aa466"
+          ACTUAL="$(sha256sum "$SRC" | awk '{print $1}')"
+
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+              echo "ERROR: custom patch SHA256 mismatch"
+              exit 1
+          fi
+
+          echo
+          echo "===== OVERWRITE ARMBIAN PATCH ====="
+          cp -f "$SRC" "$DST"
+
+          cmp "$SRC" "$DST"
+
+          echo
+          echo "===== PATCH AFTER OVERWRITE ====="
+          sha256sum "$DST"
+
+          echo
+          echo "===== DIAGNOSTIC CODE ====="
+          grep -n -B5 -A12 \
+            'gmac->variant == &emac_variant_h616_internal' \
+            "$DST"
+
+      - name: Build diagnostic kernel
+        working-directory: armbian-build
+        shell: bash
+        run: |
+          ./compile.sh kernel \
+            REVISION="26.8.3" \
+            BOARD="x96-mate" \
+            BRANCH="current" \
+            RELEASE="noble" \
+            KERNEL_CONFIGURE="no" \
+            BUILD_DESKTOP="no" \
+            BUILD_MINIMAL="no" \
+            EXPERT="yes"
+
+      - name: Verify diagnostic patch was applied
+        working-directory: armbian-build
+        shell: bash
+        run: |
+          echo "===== PATCH RESULT ====="
+
+          grep -R -a \
+            'drv-net-stmmac-dwmac-sun8i-add-h616-internal-phy' \
+            output/logs/ || true
+
+          if ! grep -R -a -q \
+            'drv-net-stmmac-dwmac-sun8i-add-h616-internal-phy.*+69/-11' \
+            output/logs/; then
+              echo "ERROR: diagnostic patch was NOT applied as +69/-11"
+              exit 1
+          fi
+
+          echo "OK: diagnostic patch applied as +69/-11"
+
+      - name: Upload kernel packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: x96-mate-h616-lantest2-kernel
+          path: |
+            armbian-build/output/debs/linux-image-current-sunxi64_*.deb
+            armbian-build/output/logs/
+          if-no-files-found: error
