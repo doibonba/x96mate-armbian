@@ -1,0 +1,13 @@
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h616-x96-mate.dts b/arch/arm64/boot/dts/allwinner/sun50i-h616-x96-mate.dts
+index 111111111111..222222222222 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-h616-x96-mate.dts
++++ b/arch/arm64/boot/dts/allwinner/sun50i-h616-x96-mate.dts
+@@ -216,3 +216,8 @@
+ &usbphy {
+ 	status = "okay";
+ };
++
++/* X96 Mate H616 experimental LAN test */
++&emac1 {
++	compatible = "allwinner,sun50i-h616-internal-emac";
++};
