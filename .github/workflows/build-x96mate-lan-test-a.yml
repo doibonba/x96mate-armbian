@@ -1,0 +1,38 @@
+name: Build X96 Mate LAN Test A
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: X96 Mate LAN internal-EMAC test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Build Armbian LAN Test A
+        uses: armbian/build@main
+        with:
+          armbian_token: ${{ secrets.GITHUB_TOKEN }}
+          armbian_runner_clean: "yes"
+          armbian_target: "build"
+          armbian_branch: "main"
+          armbian_kernel_branch: "current"
+          armbian_release: "noble"
+          armbian_board: "x96-mate"
+          armbian_ui: "server"
+          armbian_compress: "sha,img,xz"
+          armbian_release_tag: "x96mate-lan-test-a"
+          armbian_release_title: "X96 Mate LAN Test A"
+          armbian_release_prerelease: "true"
+
+      - name: Upload image
+        uses: actions/upload-artifact@v4
+        with:
+          name: X96Mate-Noble-LAN-Test-A
+          path: build/output/images/*.img.xz
+          if-no-files-found: error
+          retention-days: 7
