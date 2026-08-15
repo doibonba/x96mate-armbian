@@ -1,0 +1,3 @@
+# EXPERIMENTAL ONLY — not an official Ophub row.
+# 1.ID 2.MODEL 3.SOC 4.FDTFILE 5.UNUSED 6.MAINLINE_UBOOT 7.BOOTLOADER_IMG 8.DESCRIPTION 9.KERNEL_TAGS 10.PLATFORM 11.FAMILY 12.BOOT_CONF 13.CONTRIBUTORS 14.BOARD 15.BUILD
+w209 :X96-Mate :h616 :sun50i-h616-x96-mate.dtb :NA :NA :u-boot-sunxi-with-spl.bin :4GiB-RAM,32G-eMMC,100Mb-Nic,AW859A-WIFI :stable/6.18.y :allwinner :sun50i-h616 :armbianEnv.txt :custom :x96-mate :no
