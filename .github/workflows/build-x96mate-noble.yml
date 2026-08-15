@@ -1,0 +1,64 @@
+name: Build X96 Mate Noble 2026.08
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: X96 Mate / Noble / server / current
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Build Armbian baseline
+        uses: armbian/build@main
+        with:
+          armbian_token: ${{ secrets.GITHUB_TOKEN }}
+          armbian_runner_clean: "yes"
+          armbian_target: "build"
+          armbian_branch: "main"
+          armbian_kernel_branch: "current"
+          armbian_release: "noble"
+          armbian_board: "x96-mate"
+          armbian_ui: "server"
+          armbian_compress: "sha,img,xz"
+          armbian_release_tag: "x96mate-noble-2026.08-baseline"
+          armbian_release_title: "X96 Mate Noble 2026.08 Baseline"
+          armbian_release_prerelease: "true"
+          armbian_release_body: |
+            Baseline image for X96 Mate H616.
+            Build target: Noble / arm64 / server / current kernel.
+            Test from SD first. Onboard EMAC1 LAN is not patched in this baseline.
+
+      - name: Prepare friendly filename
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+
+          mapfile -t imgs < <(find build/output/images -maxdepth 1 -type f -name '*.img.xz' | sort)
+          if [[ ${#imgs[@]} -eq 0 ]]; then
+            echo "No .img.xz image found in build/output/images" >&2
+            find build/output -maxdepth 3 -type f -print || true
+            exit 1
+          fi
+
+          src="${imgs[0]}"
+          dst="dist/Armbian_noble_arm64_server_2026.08_x96-mate_baseline.img.xz"
+          cp "$src" "$dst"
+          sha256sum "$dst" > "${dst}.sha256"
+
+          printf 'Original Armbian output: %s\n' "$(basename "$src")" > dist/BUILD_INFO.txt
+          printf 'Friendly label: Armbian_noble_arm64_server_2026.08_x96-mate_baseline.img.xz\n' >> dist/BUILD_INFO.txt
+          printf 'Note: 2026.08 is a project label; the internal Armbian revision is resolved by the build action at run time.\n' >> dist/BUILD_INFO.txt
+
+      - name: Upload friendly artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Armbian_noble_arm64_server_2026.08_x96-mate_baseline
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
