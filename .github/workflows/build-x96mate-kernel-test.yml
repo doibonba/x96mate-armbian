@@ -1,0 +1,29 @@
+name: Build X96 Mate LAN Test Kernel
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Armbian kernel
+        uses: armbian/build@main
+        with:
+          armbian_token: ${{ secrets.GITHUB_TOKEN }}
+          armbian_board: x96-mate
+          armbian_target: kernel
+          armbian_branch: main
+          armbian_kernel_branch: current
+          armbian_release: noble
+          armbian_ui: server
+          armbian_runner_clean: yes
+          armbian_artifacts: build/output/debs/
+          armbian_release_title: X96 Mate H616 LAN kernel test
