@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   build:
-    name: demo2 / X96 Mate historical 6.12 path
+    name: demo2 / X96 Mate pinned 6.12.74
     runs-on: ubuntu-24.04
     timeout-minutes: 360
 
@@ -16,13 +16,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up QEMU for ARM64
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64,arm
+
       - name: Clone historical Armbian build framework
         shell: bash
         run: |
           set -euo pipefail
           git clone https://github.com/armbian/build.git armbian-build
           cd armbian-build
+
+          # Exact Armbian framework commit reported by the old X96 Mate image.
           git checkout 77f919f6c
+
           echo "===== FRAMEWORK COMMIT ====="
           git rev-parse HEAD
 
@@ -32,10 +40,15 @@ jobs:
           set -euo pipefail
           cd armbian-build
 
+          # IMPORTANT:
+          # The historical framework's "current" target follows linux-6.12.y.
+          # In 2026 that branch has advanced beyond the kernel used by the old image,
+          # causing old Armbian patches to fail. Pin the exact old kernel tag instead.
           ./compile.sh \
             BOARD=x96-mate \
             BRANCH=current \
             RELEASE=noble \
+            KERNELBRANCH=tag:v6.12.74 \
             BUILD_MINIMAL=yes \
             BUILD_DESKTOP=no \
             KERNEL_CONFIGURE=no \
@@ -65,9 +78,9 @@ jobs:
             echo "Board: x96-mate"
             echo "Release: noble"
             echo "Branch: current"
-            echo "Purpose: reproduce the historical X96 Mate 6.12/sunxi-gmac path."
-            echo "IMPORTANT: no LAN DT modification is applied during build."
-            echo "PHY address 0 will be tested manually on the SD image after first boot."
+            echo "Kernel source pinned: tag:v6.12.74"
+            echo "Purpose: reproduce the old X96 Mate 6.12.74/sunxi-gmac path."
+            echo "No LAN DT modification is applied during build."
             echo "Original output: $(basename "$src")"
           } > dist/BUILD_INFO.txt
 
