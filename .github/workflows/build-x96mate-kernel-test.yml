@@ -76,20 +76,35 @@ jobs:
         working-directory: armbian-build
         shell: bash
         run: |
-          echo "===== PATCH RESULT ====="
+          set -euo pipefail
 
-          grep -R -a \
-            'drv-net-stmmac-dwmac-sun8i-add-h616-internal-phy' \
-            output/logs/ || true
+          SOURCE="cache/sources/linux-kernel-worktree/6.18__sunxi64__arm64/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c"
 
-          if ! grep -R -a -q \
-            'drv-net-stmmac-dwmac-sun8i-add-h616-internal-phy.*+69/-11' \
-            output/logs/; then
-              echo "ERROR: diagnostic patch was NOT applied as +69/-11"
+          echo "===== VERIFY KERNEL SOURCE ====="
+
+          if [ ! -f "$SOURCE" ]; then
+              echo "ERROR: kernel source not found:"
+              echo "$SOURCE"
               exit 1
           fi
 
-          echo "OK: diagnostic patch applied as +69/-11"
+          grep -n -B5 -A12 \
+            'gmac->variant == &emac_variant_h616_internal' \
+            "$SOURCE" || true
+
+          if ! grep -Pzoq \
+            'if \(!gmac->use_internal_phy\) \{\s*if \(gmac->variant == &emac_variant_h616_internal\)\s*ret = sun8i_dwmac_power_internal_phy\(priv\);\s*else\s*ret = 0;\s*if \(!ret\)\s*ret = sun8i_dwmac_reset\(priv\);' \
+            "$SOURCE"; then
+              echo "ERROR: diagnostic code is NOT present in patched kernel source"
+              exit 1
+          fi
+
+          echo
+          echo "OK: diagnostic H616 external-PHY workaround IS present in kernel source"
+
+          echo
+          echo "===== BUILT DEBS ====="
+          find output/debs -maxdepth 2 -type f -name '*.deb' -print 2>/dev/null || true
 
       - name: Upload kernel packages
         uses: actions/upload-artifact@v4
