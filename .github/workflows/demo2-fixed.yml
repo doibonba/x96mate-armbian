@@ -1,0 +1,95 @@
+name: demo2
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: demo2 / X96 Mate historical 6.12 path
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # The historical Armbian framework relaunches the build in Docker.
+      # Register ARM binfmt/QEMU on the GitHub runner first so the inner
+      # Armbian container passes its arm64 arch-test.
+      - name: Set up QEMU for ARM64
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64,arm
+
+      - name: Verify ARM64 binfmt
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "===== BINFMT ====="
+          ls -l /proc/sys/fs/binfmt_misc/ || true
+          grep -H . /proc/sys/fs/binfmt_misc/qemu-aarch64 2>/dev/null || true
+
+      - name: Clone historical Armbian build framework
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone https://github.com/armbian/build.git armbian-build
+          cd armbian-build
+          git checkout 77f919f6c
+          echo "===== FRAMEWORK COMMIT ====="
+          git rev-parse HEAD
+
+      - name: Build X96 Mate demo2
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd armbian-build
+
+          ./compile.sh \
+            BOARD=x96-mate \
+            BRANCH=current \
+            RELEASE=noble \
+            BUILD_MINIMAL=yes \
+            BUILD_DESKTOP=no \
+            KERNEL_CONFIGURE=no \
+            COMPRESS_OUTPUTIMAGE=xz \
+            SHARE_LOG=no
+
+      - name: Prepare demo2 artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+
+          mapfile -t imgs < <(find armbian-build/output/images -maxdepth 1 -type f -name '*.img.xz' | sort)
+
+          if [[ ${#imgs[@]} -eq 0 ]]; then
+            echo "No .img.xz image found" >&2
+            find armbian-build/output -maxdepth 3 -type f -print || true
+            exit 1
+          fi
+
+          src="${imgs[0]}"
+          cp "$src" dist/demo2.img.xz
+          sha256sum dist/demo2.img.xz > dist/demo2.img.xz.sha256
+
+          {
+            echo "Framework commit: 77f919f6c"
+            echo "Board: x96-mate"
+            echo "Release: noble"
+            echo "Branch: current"
+            echo "Purpose: reproduce the historical X96 Mate 6.12/sunxi-gmac path."
+            echo "No LAN DT modification is applied during build."
+            echo "Original output: $(basename "$src")"
+          } > dist/BUILD_INFO.txt
+
+      - name: Upload demo2
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo2
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
