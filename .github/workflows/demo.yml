@@ -1,0 +1,62 @@
+name: demo
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: demo / X96 Mate LAN diagnostic
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Build demo
+        uses: armbian/build@main
+        with:
+          armbian_token: ${{ secrets.GITHUB_TOKEN }}
+          armbian_runner_clean: "yes"
+          armbian_target: "build"
+          armbian_branch: "main"
+          armbian_kernel_branch: "current"
+          armbian_release: "noble"
+          armbian_board: "x96-mate"
+          armbian_ui: "server"
+          armbian_compress: "sha,img,xz"
+          armbian_release_tag: "x96mate-demo-${{ github.run_number }}"
+          armbian_release_title: "demo"
+          armbian_release_prerelease: "true"
+          armbian_release_body: |
+            X96 Mate H616 experimental LAN diagnostic build.
+            Test from SD first; do not install to eMMC yet.
+            demo changes only the board DT:
+              - old EMAC0/A64 compatible fallback
+              - syscon index 0 instead of emac1 index 1
+
+      - name: Prepare demo filename
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+
+          mapfile -t imgs < <(find build/output/images -maxdepth 1 -type f -name '*.img.xz' | sort)
+
+          if [[ ${#imgs[@]} -eq 0 ]]; then
+            echo "No .img.xz image found" >&2
+            find build/output -maxdepth 3 -type f -print || true
+            exit 1
+          fi
+
+          src="${imgs[0]}"
+          cp "$src" dist/demo.img.xz
+          sha256sum dist/demo.img.xz > dist/demo.img.xz.sha256
+
+      - name: Upload demo artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
